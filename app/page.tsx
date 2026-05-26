@@ -1,65 +1,144 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+
+const WORDS = [
+  "APFEL", "BAUER", "BERGE", "BUCHE", "DAMEN",
+  "DICHT", "ECHTE", "EINIG", "FEUER", "FLUSS",
+  "FRAGE", "GANZE", "GERNE", "HALLO", "HAUSE",
+  "HEUTE", "JAHRE", "KLEID", "LEBEN", "LEISE",
+  "MACHT", "MILDE", "NATUR", "OFFEN", "QUELL",
+  "RAUCH", "REICH", "ROSEN", "RUHIG", "SAGEN",
+  "SPIEL", "STARK", "TIERE", "TISCH", "VATER",
+  "WAHRE", "WARTE", "WEISE", "WERDE", "WEISS",
+  "WELLE", "WENIG", "WORTE", "ZEUGE",
+];
+
+const MAX_GUESSES = 6;
+const WORD_LENGTH = 5;
+
+type LetterStatus = "correct" | "present" | "absent" | "empty";
+
+function evaluateGuess(guess: string, target: string): LetterStatus[] {
+  const result: LetterStatus[] = Array(WORD_LENGTH).fill("absent");
+  const targetChars = target.split("");
+
+  guess.split("").forEach((ch, i) => {
+    if (ch === targetChars[i]) {
+      result[i] = "correct";
+      targetChars[i] = "#";
+    }
+  });
+
+  guess.split("").forEach((ch, i) => {
+    if (result[i] === "correct") return;
+    const idx = targetChars.indexOf(ch);
+    if (idx !== -1) {
+      result[i] = "present";
+      targetChars[idx] = "#";
+    }
+  });
+
+  return result;
+}
 
 export default function Home() {
+  const [target, setTarget] = useState("");
+  const [guesses, setGuesses] = useState<string[]>([]);
+  const [currentGuess, setCurrentGuess] = useState("");
+  const [gameStatus, setGameStatus] = useState<"playing" | "won" | "lost">("playing");
+
+  useEffect(() => {
+    setTarget(WORDS[Math.floor(Math.random() * WORDS.length)]);
+  }, []);
+
+  const submitGuess = useCallback(() => {
+    if (currentGuess.length !== WORD_LENGTH) return;
+    const newGuesses = [...guesses, currentGuess];
+    setGuesses(newGuesses);
+    setCurrentGuess("");
+
+    if (currentGuess === target) {
+      setGameStatus("won");
+    } else if (newGuesses.length >= MAX_GUESSES) {
+      setGameStatus("lost");
+    }
+  }, [currentGuess, guesses, target]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (gameStatus !== "playing") return;
+      if (e.key === "Enter") {
+        submitGuess();
+      } else if (e.key === "Backspace") {
+        setCurrentGuess((prev) => prev.slice(0, -1));
+      } else if (/^[a-zA-Z]$/.test(e.key) && currentGuess.length < WORD_LENGTH) {
+        setCurrentGuess((prev) => prev + e.key.toUpperCase());
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [currentGuess, gameStatus, submitGuess]);
+
+  const resetGame = () => {
+    setTarget(WORDS[Math.floor(Math.random() * WORDS.length)]);
+    setGuesses([]);
+    setCurrentGuess("");
+    setGameStatus("playing");
+  };
+
+  const getCellColor = (status: LetterStatus) => {
+    switch (status) {
+      case "correct": return "bg-green-500 text-white border-green-500";
+      case "present": return "bg-yellow-500 text-white border-yellow-500";
+      case "absent": return "bg-gray-500 text-white border-gray-500";
+      default: return "bg-white text-black border-gray-300";
+    }
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
+      <h1 className="text-4xl font-bold mb-8 text-black">Wordle</h1>
+
+      <div className="grid gap-2 mb-8">
+        {Array.from({ length: MAX_GUESSES }).map((_, rowIndex) => {
+          const guess = guesses[rowIndex] || (rowIndex === guesses.length ? currentGuess : "");
+          const isSubmitted = rowIndex < guesses.length;
+          const statuses = isSubmitted ? evaluateGuess(guesses[rowIndex], target) : [];
+          return (
+            <div key={rowIndex} className="flex gap-2">
+              {Array.from({ length: WORD_LENGTH }).map((_, colIndex) => {
+                const letter = guess[colIndex] || "";
+                const status = isSubmitted ? statuses[colIndex] : "empty";
+                return (
+                  <div key={colIndex} className={`w-14 h-14 border-2 flex items-center justify-center text-2xl font-bold uppercase ${getCellColor(status)}`}>
+                    {letter}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+
+      {gameStatus === "won" && (
+        <div className="text-center">
+          <p className="text-2xl font-bold text-green-600 mb-4">🎉 Gewonnen!</p>
+          <button onClick={resetGame} className="px-6 py-3 bg-blue-500 text-white rounded-lg font-bold hover:bg-blue-600">Nochmal spielen</button>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      )}
+
+      {gameStatus === "lost" && (
+        <div className="text-center">
+          <p className="text-2xl font-bold text-red-600 mb-2">Verloren!</p>
+          <p className="mb-4 text-black">Das Wort war: <span className="font-bold">{target}</span></p>
+          <button onClick={resetGame} className="px-6 py-3 bg-blue-500 text-white rounded-lg font-bold hover:bg-blue-600">Nochmal spielen</button>
         </div>
-      </main>
-    </div>
+      )}
+
+      {gameStatus === "playing" && (
+        <p className="text-gray-600 text-sm">Tipp ein 5-Buchstaben-Wort und drück Enter</p>
+      )}
+    </main>
   );
 }
