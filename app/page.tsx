@@ -47,6 +47,16 @@ export default function Home() {
   const [guesses, setGuesses] = useState<string[]>([]);
   const [currentGuess, setCurrentGuess] = useState("");
   const [gameStatus, setGameStatus] = useState<"playing" | "won" | "lost">("playing");
+  const [darkMode, setDarkMode] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("darkMode");
+    if (saved === "true") setDarkMode(true);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("darkMode", String(darkMode));
+  }, [darkMode]);
 
   useEffect(() => {
     setTarget(WORDS[Math.floor(Math.random() * WORDS.length)]);
@@ -89,29 +99,68 @@ export default function Home() {
 
   const getCellColor = (status: LetterStatus) => {
     switch (status) {
-      case "correct": return "bg-green-500 text-white border-green-500";
-      case "present": return "bg-yellow-500 text-white border-yellow-500";
-      case "absent": return "bg-gray-500 text-white border-gray-500";
-      default: return "bg-white text-black border-gray-300";
+      case "correct":
+        return "bg-green-500 text-white border-green-500";
+      case "present":
+        return "bg-yellow-500 text-white border-yellow-500";
+      case "absent":
+        return darkMode
+          ? "bg-gray-700 text-white border-gray-700"
+          : "bg-gray-500 text-white border-gray-500";
+      default:
+        return darkMode
+          ? "bg-gray-900 text-white border-gray-600"
+          : "bg-white text-black border-gray-300";
     }
   };
 
   return (
-    <main className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
-      <h1 className="text-4xl font-bold mb-8 text-black">Wordle</h1>
+    <main
+      className={`min-h-screen flex flex-col items-center justify-center p-4 transition-colors ${
+        darkMode ? "bg-gray-900" : "bg-gray-100"
+      }`}
+    >
+      <button
+        onClick={() => setDarkMode(!darkMode)}
+        className={`absolute top-4 right-4 p-3 rounded-full text-xl transition-colors ${
+          darkMode
+            ? "bg-gray-700 hover:bg-gray-600"
+            : "bg-white hover:bg-gray-200 shadow"
+        }`}
+        aria-label="Modus umschalten"
+      >
+        {darkMode ? "☀️" : "🌙"}
+      </button>
+
+      <h1
+        className={`text-4xl font-bold mb-8 ${
+          darkMode ? "text-white" : "text-black"
+        }`}
+      >
+        Wordle
+      </h1>
 
       <div className="grid gap-2 mb-8">
         {Array.from({ length: MAX_GUESSES }).map((_, rowIndex) => {
-          const guess = guesses[rowIndex] || (rowIndex === guesses.length ? currentGuess : "");
+          const guess =
+            guesses[rowIndex] ||
+            (rowIndex === guesses.length ? currentGuess : "");
           const isSubmitted = rowIndex < guesses.length;
-          const statuses = isSubmitted ? evaluateGuess(guesses[rowIndex], target) : [];
+          const statuses = isSubmitted
+            ? evaluateGuess(guesses[rowIndex], target)
+            : [];
           return (
             <div key={rowIndex} className="flex gap-2">
               {Array.from({ length: WORD_LENGTH }).map((_, colIndex) => {
                 const letter = guess[colIndex] || "";
                 const status = isSubmitted ? statuses[colIndex] : "empty";
                 return (
-                  <div key={colIndex} className={`w-14 h-14 border-2 flex items-center justify-center text-2xl font-bold uppercase ${getCellColor(status)}`}>
+                  <div
+                    key={colIndex}
+                    className={`w-14 h-14 border-2 flex items-center justify-center text-2xl font-bold uppercase transition-colors ${getCellColor(
+                      status
+                    )}`}
+                  >
                     {letter}
                   </div>
                 );
@@ -123,21 +172,39 @@ export default function Home() {
 
       {gameStatus === "won" && (
         <div className="text-center">
-          <p className="text-2xl font-bold text-green-600 mb-4">🎉 Gewonnen!</p>
-          <button onClick={resetGame} className="px-6 py-3 bg-blue-500 text-white rounded-lg font-bold hover:bg-blue-600">Nochmal spielen</button>
+          <p className="text-2xl font-bold text-green-500 mb-4">
+            🎉 Gewonnen!
+          </p>
+          <button
+            onClick={resetGame}
+            className="px-6 py-3 bg-blue-500 text-white rounded-lg font-bold hover:bg-blue-600"
+          >
+            Nochmal spielen
+          </button>
         </div>
       )}
 
       {gameStatus === "lost" && (
         <div className="text-center">
-          <p className="text-2xl font-bold text-red-600 mb-2">Verloren!</p>
-          <p className="mb-4 text-black">Das Wort war: <span className="font-bold">{target}</span></p>
-          <button onClick={resetGame} className="px-6 py-3 bg-blue-500 text-white rounded-lg font-bold hover:bg-blue-600">Nochmal spielen</button>
+          <p className="text-2xl font-bold text-red-500 mb-2">Verloren!</p>
+          <p className={`mb-4 ${darkMode ? "text-white" : "text-black"}`}>
+            Das Wort war: <span className="font-bold">{target}</span>
+          </p>
+          <button
+            onClick={resetGame}
+            className="px-6 py-3 bg-blue-500 text-white rounded-lg font-bold hover:bg-blue-600"
+          >
+            Nochmal spielen
+          </button>
         </div>
       )}
 
       {gameStatus === "playing" && (
-        <p className="text-gray-600 text-sm">Tipp ein 5-Buchstaben-Wort und drück Enter</p>
+        <p
+          className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}
+        >
+          Tipp ein 5-Buchstaben-Wort und drück Enter
+        </p>
       )}
     </main>
   );
