@@ -137,7 +137,7 @@ export default function Home() {
           darkMode ? "text-white" : "text-black"
         }`}
       >
-        Wordle
+        Wordle!!!
       </h1>
 
       <div className="grid gap-2 mb-8">
